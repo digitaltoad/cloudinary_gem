@@ -187,18 +187,20 @@ end
 
 ActionView::Base.send :include, CloudinaryHelper
 
+module Cloudinary::SassFunctions
+  def cloudinary_url(public_id, sass_options={})
+    options = {}
+    sass_options.each{|k, v| options[k.to_sym] = v.value}
+    url = Cloudinary::Utils.cloudinary_url(public_id.value, {:type=>:asset}.merge(options))
+    Sass::Script::String.new("url(#{url})")      
+  end
+end
+
 begin
   require 'sass-rails'
-  class Sass::Rails::Resolver
-    alias :original_image_path :image_path
-    def image_path(img)
-      if Cloudinary.config.enhance_image_tag
-        original_image_path(Cloudinary::Utils.cloudinary_url(img, :type=>:asset))
-      else
-        original_image_path(img)
-      end      
-    end      
-  end  
+  module Sprockets::SassFunctions
+    include Cloudinary::SassFunctions
+  end
 rescue LoadError
   # no sass rails support. Ignore.
 end
@@ -207,12 +209,7 @@ begin
   require 'sass'
   require 'sass/script/functions'
   module Sass::Script::Functions
-    def cloudinary_url(public_id, sass_options={})
-      options = {}
-      sass_options.each{|k, v| options[k.to_sym] = v.value}
-      url = Cloudinary::Utils.cloudinary_url(public_id.value, {:type=>:asset}.merge(options))
-      Sass::Script::String.new("url(#{url})")      
-    end
+    include Cloudinary::SassFunctions
     declare :cloudinary_url, [:string], :var_kwargs => true
   end
 rescue LoadError
